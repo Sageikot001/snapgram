@@ -1,9 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Link, useNavigate } from "react-router-dom";
 
+import { useToast } from "@/components/ui/use-toast"
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -15,9 +16,18 @@ import { useForm } from "react-hook-form";
 import { SignupValidation } from "@/lib/validation";
 import { z } from "zod";
 import { Loader } from "lucide-react";
+import { useCreatUserAccount, useSignInAccount } from "@/lib/react-query/queriesAndMutations";
+import { useUserContext } from "@/context/AuthContext";
 
 const SignupForm = () => {
-  const isLoading = false
+  const { toast } = useToast()
+  const { checkAuthUser, isLoading: isUserLoading } = useUserContext();
+  const navigate = useNavigate()
+
+
+  const { mutateAsync: createUserAccount, isPending: isCreatingAccount } = useCreatUserAccount()
+
+  const { mutateAsync: signInAccount, isPending: isSigningIn } = useSignInAccount()
 
   // 1. Define your form.
   const form = useForm<z.infer<typeof SignupValidation>>({
@@ -29,11 +39,35 @@ const SignupForm = () => {
       password: "",
     },
   });
+
   // 2. Define a submit handler.
-  function onSubmit(values: z.infer<typeof SignupValidation>) {
-    // Do something with the form values.
-    // ✅ This will be type-safe and validated.
-    console.log(values);
+  async function onSubmit(values: z.infer<typeof SignupValidation>) {
+    const newUser = await createUserAccount(values);
+
+    if (!newUser) {
+      return toast({
+        title: "Signed up failed. Please try again.",
+      }) 
+      }
+
+      const session = await signInAccount({
+        email: values.email,
+        password: values.password,
+      })
+
+      if(!session) {
+        return toast({ title: 'Sign in failed. Please try again.'})
+      }
+
+      const isLoggedIn = await checkAuthUser();
+
+      if(isLoggedIn) {
+        form.reset();
+
+        navigate('/')
+      } else {
+        return toast({ title: 'sign up failed. Please try again.'})
+      }
   }
 
   return (
@@ -48,7 +82,10 @@ const SignupForm = () => {
           To use Snapgram, please enter your details
         </p>
 
-        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 w-full mt-4">
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="flex flex-col gap-5 w-full mt-4"
+        >
           <FormField
             control={form.control}
             name="name"
@@ -102,10 +139,23 @@ const SignupForm = () => {
             )}
           />
           <Button type="submit" className="shad-button_primary">
-            {isLoading ? (<div className="flex-center gap-2">
-              <Loader/> Loading...
-            </div>): "Sign up"}
+            {isCreatingAccount ? (
+              <div className="flex-center gap-2">
+                <Loader /> Loading...
+              </div>
+            ) : (
+              "Sign up"
+            )}
           </Button>
+          <p className="text-small-regular text-light-2 text-center mt-2">
+            Already have an account?
+            <Link
+              to="/sign-in"
+              className="text-primary-500 text-small-semibold ml-1"
+            >
+              Log in
+            </Link>
+          </p>
         </form>
       </div>
     </Form>
