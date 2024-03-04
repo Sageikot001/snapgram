@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate } from "react-router-dom";
 
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/components/ui/use-toast";
 import {
   Form,
   FormControl,
@@ -16,18 +16,23 @@ import { useForm } from "react-hook-form";
 import { SignupValidation } from "@/lib/validation";
 import { z } from "zod";
 import { Loader } from "lucide-react";
-import { useCreatUserAccount, useSignInAccount } from "@/lib/react-query/queriesAndMutations";
+import {
+  useCreateUserAccount,
+  useSignInAccount,
+} from "@/lib/react-query/queriesAndMutations";
 import { useUserContext } from "@/context/AuthContext";
+// import { account, appwriteConfig, databases } from "@/lib/appwrite/config";
 
 const SignupForm = () => {
-  const { toast } = useToast()
+  const { toast } = useToast();
   const { checkAuthUser, isLoading: isUserLoading } = useUserContext();
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
+  const { mutateAsync: createUserAccount, isPending: isCreatingAccount } =
+    useCreateUserAccount();
 
-  const { mutateAsync: createUserAccount, isPending: isCreatingAccount } = useCreatUserAccount()
-
-  const { mutateAsync: signInAccount, isPending: isSigningIn } = useSignInAccount()
+  const { mutateAsync: signInAccount, isPending: isSigningIn } =
+    useSignInAccount();
 
   // 1. Define your form.
   const form = useForm<z.infer<typeof SignupValidation>>({
@@ -42,34 +47,45 @@ const SignupForm = () => {
 
   // 2. Define a submit handler.
   async function onSubmit(values: z.infer<typeof SignupValidation>) {
-    const newUser = await createUserAccount(values);
 
+    
+    console.log(values)
+    
+    const newUser = await createUserAccount(values);
+    
+    // console.log(newUser)
+    
     if (!newUser) {
       return toast({
-        title: "Signed up failed. Please try again.",
-      }) 
-      }
+        title: "Signed up failed. Please try again. No new user.",
+      });
+    }
 
-      const session = await signInAccount({
-        email: values.email,
-        password: values.password,
-      })
+    console.log(values.email, values.password)
+    
+    const session = await signInAccount({
+      email: values.email,
+      password: values.password,
+    });
+    
+    if (!session) {
+      return toast({ title: "Sign in failed. Please try again. No session" });
+    }
 
-      if(!session) {
-        return toast({ title: 'Sign in failed. Please try again.'})
-      }
+    const isLoggedIn = await checkAuthUser();
+    
+    if (isLoggedIn) {
+      form.reset();
 
-      const isLoggedIn = await checkAuthUser();
-
-      if(isLoggedIn) {
-        form.reset();
-
-        navigate('/')
-      } else {
-        return toast({ title: 'sign up failed. Please try again.'})
-      }
+      navigate("/");
+    } else {
+      return toast({ title: "sign up failed. Please try again. No loggin" });
+    }
   }
 
+  // const db =  await databases.listDocuments(appwriteConfig.databaseId, appwriteConfig.userCollectionId);
+
+  // console.log(db);
   return (
     <Form {...form}>
       <div className="sm:w-420 flex-center flex-col">
