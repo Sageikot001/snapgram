@@ -38,11 +38,14 @@ const SigninForm = () => {
 
   // 2. Define a submit handler.
   async function onSubmit(values: z.infer<typeof SigninValidation>) {
-
+      console.log('We are here');
+      
       const session = await signInAccount({
         email: values.email,
         password: values.password,
       })
+
+      console.log({session})
 
       if(!session) {
         return toast({ title: 'Sign in failed. Please try again.'})
@@ -50,8 +53,13 @@ const SigninForm = () => {
 
       const isLoggedIn = await checkAuthUser();
 
+      console.log({isLoggedIn})
+
       if(isLoggedIn) {
         form.reset();
+
+        console.log('NAVIGATING')
+
         navigate('/')
       } else {
         return toast({ title: 'sign up failed. Please try again.'})

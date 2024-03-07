@@ -104,87 +104,97 @@ export async function getCurrentUser() {
   }
 }
 
-// import { ID, Query } from "appwrite";
+export async function signOutAccount() {
+  try {
+    const session = await account.deleteSession("current");
 
-// import { INewUser } from "@/types";
-// import { account, appwriteConfig, avatars, databases } from "./config";
+    return session;
+    // Remove the user data from local 
+  } catch (error) {
+    console.log(error);
+  }
+}
 
-// export async function createUserAccount(user: INewUser) {
-//   try {
-//     const newAccount = await account.create(
-//       ID.unique(),
-//       user.email,
-//       user.password,
-//       user.name
-//     );
+export async function createPost(post: INewPost) {
+  try {
+    // upload image to sotrage
+    const uploadedFile = await uploadFile(post.file[0])
 
-//     if (!newAccount) throw Error;
+    if(!uploadFile) throw Error
 
-//     const avatarUrl = avatars.getInitials(user.name);
+    //Get file url
+    const fileUrl = getFilePreview(uploadedFile.$id);
 
-//     const newUser = await saveUserToDB({
-//       accountID: newAccount.$id,
-//       name: newAccount.name,
-//       email: newAccount.email,
-//       username: user.username,
-//       imageUrl: avatarUrl,
-//     });
+    if(!fileUrl) {
+      deleteFile(uploadedFile.$id)
+      throw Error
+    }
+    // Convert tags in an array
+    const tags = post.tags?.replace(/ /g,"").split(",") || [];
 
-//     return newUser;
-//   } catch (error) {
-//     console.log(error);
-//     return error;
-//   }
-// }
+    // save post to database
+    const newPost = await databases.createDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.postCollectionId,
+      ID.unique(),
+      {
+        creator: post.userId,
+        caption: post.caption,
+        imageUrl: fileUrl,
+        imageId: uploadFile.$id,
+        location: post.location,
+        tags: tags
+      }
+    )
 
-// export async function saveUserToDB(user: {
-//   accountID: string;
-//   email: string;
-//   name: string;
-//   imageUrl: URL;
-//   username?: string;
-// }) {
-//   console.log("User data:", user);
-//   try {
-//     const newUser = await databases.createDocument(
-//       appwriteConfig.databaseId,
-//       appwriteConfig.userCollectionId,
-//       ID.unique(),
-//       user
-//     );
+    if(!newPost) {
+      await deleteFile(uploadFile.$id)
+      throw  Error;
+    }
 
-//     return newUser;
-//   } catch (error) {
-//     console.log('Error creating user document', error);
-//   }
-// }
+    return newPost
+  } catch (error) {
+    console.log(error);
+  }
+}
 
-// export async function signInAccount(user: { email: string; password: string }) {
-//   try {
-//     const session = await account.createSession(user.email, user.password);
+export async function uploadFile(File: File) {
+  try {
+    const uploadedFile = await storage.createFile(
+    appwriteConfig.storageId,
+    ID.unique(),
+    file
+    );
 
-//     return session;
-//   } catch (error) {
-//     console.log(error);
-//   }
-// }
+    return uploadFile;
+  } catch (error) {
+    console.log(error);
+  }
+}
 
-// export async function getCurrentUser() {
-//   try {
-//     const currentAccount = await account.get();
+export async function getFilePreview(fileId: string){
+  try{
+    const fileUrl = storage.getFilePreview(
+      appwriteConfig.storageId,
+      field,
+      2000,
+      2000,
+      "top",
+      100,
+    )
 
-//     if (!currentAccount) throw Error;
+    return fileUrl;
+  } catch (error) {
+    console.log(error);
+  }
+}
 
-//     const currentUser = await databases.listDocuments(
-//       appwriteConfig.databaseId,
-//       appwriteConfig.userCollectionId,
-//       [Query.equal("accountId", currentAccount.$id)]
-//     );
+export async function deleteFile(fileId: string) {
+  try {
+    await storage.deleteFile(appwriteConfig.storageId, fileId);
 
-//     if (!currentUser) throw Error;
-
-//     return currentUser.documents[0];
-//   } catch (error) {
-//     console.log(error);
-//   }
-// }
+    return { status: 'ok' }
+  } catch (error) {
+    console.log(error);
+  }
+}
